@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Secrets - never commit
+.streamlit/secrets.toml
+.env
+
+# Local database
+*.db
+*.sqlite3
+
+# macOS
+.DS_Store
+
+# Distribution archives
+*.zip

@@ -1,0 +1,7 @@
+streamlit>=1.40
+sqlalchemy>=2.0
+pydantic>=2.0
+requests>=2.31
+bcrypt>=4.1
+psycopg2-binary>=2.9
+google-genai>=1.0
