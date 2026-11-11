@@ -160,6 +160,12 @@ def render_login() -> None:
 # --------------------------------------------------------------------------- #
 
 
+def diagnose_missing_secret_for_db() -> str:
+    from agent.config import diagnose_missing_secret
+
+    return diagnose_missing_secret("DATABASE_URL")
+
+
 def load_library() -> list[dict]:
     settings, api = bootstrap()
     with session_scope() as session:
@@ -181,10 +187,26 @@ def render_sidebar(library: list[dict]) -> None:
     if settings.llm_configured:
         st.sidebar.success(f"LLM: {client.label}", icon="✅")
     else:
+        from agent.config import diagnose_missing_secret
+
         st.sidebar.warning(
-            "No LLM key set, so the agent can't interpret free text. "
-            "Add GEMINI_API_KEY to secrets.",
+            "No LLM key set, so the agent can't interpret free text.\n\n"
+            + diagnose_missing_secret("GEMINI_API_KEY"),
             icon="⚠️",
+        )
+
+    # Which database is actually in use. Worth stating plainly: a missing
+    # DATABASE_URL silently falls back to a local SQLite file, and on
+    # Streamlit Community Cloud that file is wiped on every restart, so
+    # every account and library would quietly disappear.
+    if settings.is_postgres:
+        st.sidebar.success("Storage: Postgres (persistent)", icon="✅")
+    else:
+        st.sidebar.error(
+            "Storage: local SQLite. If this is the deployed app, accounts and "
+            "libraries will be erased on every restart.\n\n"
+            + diagnose_missing_secret_for_db(),
+            icon="🚨",
         )
 
     st.sidebar.divider()

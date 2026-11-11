@@ -144,9 +144,15 @@ def test_model_error_is_not_mistaken_for_a_rate_limit():
     assert not retryable
 
 
-def test_default_model_is_not_a_retired_one():
-    """Guard against the shipped default silently going stale."""
+def test_default_model_is_not_a_retired_one(monkeypatch):
+    """Guard against the shipped default silently going stale.
+
+    Reads the code's own default, not whatever the machine running the tests
+    happens to have configured.
+    """
     from agent.config import Settings
+
+    monkeypatch.delenv("LLM_MODEL", raising=False)
 
     retired = {
         "gemini-2.0-flash",

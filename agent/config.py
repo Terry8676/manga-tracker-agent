@@ -11,6 +11,36 @@ import os
 from dataclasses import dataclass, field
 
 
+def secrets_status() -> dict:
+    """Report what the app can actually see in Streamlit secrets.
+
+    Returns ``{"available": bool, "error": str | None, "keys": [str]}``.
+
+    Only key NAMES are returned, never values, so the result is safe to show
+    in the UI. This exists because swallowing the exception from
+    ``st.secrets`` made three very different problems - no secrets file, a
+    secrets file that fails to parse, and a file missing one key - produce
+    one indistinguishable "no key set" message, which is impossible to debug
+    on a deployed app.
+    """
+    try:
+        import streamlit as st
+    except Exception as exc:  # pragma: no cover - streamlit is a dependency
+        return {"available": False, "error": f"streamlit unavailable: {exc}", "keys": []}
+
+    try:
+        keys = sorted(st.secrets.keys())
+    except Exception as exc:
+        name = type(exc).__name__
+        # "No secrets file at all" is normal when running locally; anything
+        # else means the file exists but could not be read.
+        if "SecretNotFound" in name or "FileNotFound" in name:
+            return {"available": False, "error": None, "keys": []}
+        return {"available": False, "error": f"{name}: {exc}", "keys": []}
+
+    return {"available": True, "error": None, "keys": list(keys)}
+
+
 def _secret(key: str, default: str | None = None) -> str | None:
     """Read a config value from the environment, then Streamlit secrets."""
     value = os.environ.get(key)
@@ -21,10 +51,44 @@ def _secret(key: str, default: str | None = None) -> str | None:
 
         # Accessing .secrets raises if no secrets file exists at all.
         if key in st.secrets:
-            return str(st.secrets[key])
+            text = str(st.secrets[key]).strip()
+            if text:
+                return text
     except Exception:
+        # Diagnosis lives in secrets_status(); this path only decides whether
+        # a value was found.
         pass
     return default
+
+
+def diagnose_missing_secret(key: str) -> str:
+    """One sentence saying why ``key`` could not be read.
+
+    Written for the person looking at a deployed app with no shell access.
+    """
+    status = secrets_status()
+    if status["error"]:
+        return (
+            f"The secrets file was found but could not be read "
+            f"({status['error']}). That usually means the TOML is malformed - "
+            f"check for missing quotes around values."
+        )
+    if not status["available"]:
+        return (
+            "No secrets were found at all. On Streamlit Community Cloud, set "
+            "them under Manage app -> Settings -> Secrets, then reboot the app."
+        )
+    if key not in status["keys"]:
+        found = ", ".join(status["keys"]) or "(none)"
+        return (
+            f"Secrets loaded fine, but {key} is not one of them. "
+            f"Keys found: {found}. Check the spelling, and that the line is "
+            f'written as {key} = "value".'
+        )
+    return (
+        f"{key} is present in secrets but its value is empty. "
+        "Make sure the value is inside quotes and not blank."
+    )
 
 
 @dataclass
