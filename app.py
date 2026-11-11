@@ -13,7 +13,7 @@ import streamlit as st
 
 from agent.agent import MangaAgent
 from agent.auth import log_in, sign_up
-from agent.config import get_settings
+from agent.config import diagnose_missing_secret, get_settings
 from agent.db import init_db, session_scope
 from agent.executor import Executor
 from agent.llm_client import build_client
@@ -161,8 +161,6 @@ def render_login() -> None:
 
 
 def diagnose_missing_secret_for_db() -> str:
-    from agent.config import diagnose_missing_secret
-
     return diagnose_missing_secret("DATABASE_URL")
 
 
@@ -187,8 +185,6 @@ def render_sidebar(library: list[dict]) -> None:
     if settings.llm_configured:
         st.sidebar.success(f"LLM: {client.label}", icon="✅")
     else:
-        from agent.config import diagnose_missing_secret
-
         st.sidebar.warning(
             "No LLM key set, so the agent can't interpret free text.\n\n"
             + diagnose_missing_secret("GEMINI_API_KEY"),
